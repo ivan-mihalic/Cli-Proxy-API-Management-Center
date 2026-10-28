@@ -52,7 +52,7 @@ function requireValid(valid: unknown): asserts valid {
 }
 function header(value: Record<string, unknown>) {
   requireValid(
-    value.schemaVersion === 1 && value.contractVersion === '1.0.0' && seconds(value.generatedAt)
+    value.schemaVersion === 1 && value.contractVersion === '1.0.1' && seconds(value.generatedAt)
   );
 }
 function metadata(value: unknown): HistoryMetadata {

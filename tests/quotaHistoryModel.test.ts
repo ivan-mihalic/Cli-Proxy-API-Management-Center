@@ -7,19 +7,19 @@ import {
 } from '../src/features/quota/quotaHistoryModel';
 import type { HistorySeries } from '../src/types/quotaHistory';
 
-export function seriesFixture(): HistorySeries {
+export function quotaAccountSeriesFixture(): HistorySeries {
   const end = 1793196000;
   return {
     schemaVersion: 1,
-    contractVersion: '1.0.0',
+    contractVersion: '1.0.1',
     generatedAt: end,
-    credentialId: 'c_canary',
+    credentialId: 'c_account_personal_canary',
     provider: 'claude',
-    windowId: 'w_weekly',
+    windowId: 'w_max20x_weekly',
     from: end - 21600,
     to: end + 1,
     metadata: {
-      plan: 'pro',
+      plan: 'max',
       scope: 'all',
       windowDurationSeconds: 604800,
       resetSemantics: 'unknown',
@@ -48,7 +48,7 @@ export function seriesFixture(): HistorySeries {
 
 describe('quota history measurement invariants', () => {
   test('positive deltas use covered time; sufficient flat coverage gives zero', () => {
-    const s = seriesFixture();
+    const s = quotaAccountSeriesFixture();
     expect(historyBurn(s, 3, s.generatedAt).perHour).toBe(6);
     s.samples.forEach((p) => (p.usedPercent = 20));
     expect(historyBurn(s, 1, s.generatedAt).perHour).toBe(0);
@@ -56,7 +56,7 @@ describe('quota history measurement invariants', () => {
     expect(historyBurn(s, 1, s.generatedAt).perHour).toBeNull();
   });
   test('no partial edge interpolation; exact 80 percent threshold and three points', () => {
-    const s = seriesFixture();
+    const s = quotaAccountSeriesFixture();
     s.samples = s.samples.slice(-13);
     expect(historyBurn(s, 1, s.generatedAt + 1).coveredSeconds).toBe(3300);
     s.samples = s.samples.slice(3);
@@ -64,7 +64,7 @@ describe('quota history measurement invariants', () => {
     expect(historyBurn(s, 1, s.generatedAt).coverage).toBe(0.75);
   });
   test('80 percent coverage qualifies exactly, and one missing interval drops below the gate', () => {
-    const s = seriesFixture();
+    const s = quotaAccountSeriesFixture();
     const start = s.generatedAt - 3600;
     s.samples = [0, 720, 1440, 2160, 2880].map((delta) => ({
       ...s.samples[0],
@@ -79,7 +79,7 @@ describe('quota history measurement invariants', () => {
 
   test('errors, gaps, reset metadata, epochs and decreases disconnect history and burn', () => {
     for (const change of ['error', 'gap', 'epoch', 'reset', 'decrease']) {
-      const s = seriesFixture();
+      const s = quotaAccountSeriesFixture();
       s.samples = s.samples.slice(-2);
       if (change === 'error')
         s.attempts.push({ attemptedAt: s.generatedAt - 100, errorCode: 'timeout' });
@@ -93,19 +93,19 @@ describe('quota history measurement invariants', () => {
   });
   test('out of order, duplicate and invalid values fail closed', () => {
     for (const value of [NaN, Infinity, -1, 101]) {
-      const s = seriesFixture();
+      const s = quotaAccountSeriesFixture();
       s.samples[1].usedPercent = value;
       expect(historySegments(s)).toEqual([]);
       expect(historyBurn(s, 1, s.generatedAt).perHour).toBeNull();
     }
-    const s = seriesFixture();
+    const s = quotaAccountSeriesFixture();
     s.samples[1].measuredAt = s.samples[0].measuredAt;
     expect(historySegments(s)).toEqual([]);
     s.samples.reverse();
     expect(historySegments(s)).toEqual([]);
   });
   test('projection requires fresh latest measurement, qualified burn and no latest error', () => {
-    const s = seriesFixture();
+    const s = quotaAccountSeriesFixture();
     const burn = historyBurn(s, 3, s.generatedAt);
     expect(historyProjection(s, burn, s.generatedAt, s.generatedAt + 86400).at(-1)?.at).toBe(
       s.samples.at(-1)!.resetAt!
@@ -120,7 +120,7 @@ describe('quota history measurement invariants', () => {
     expect(historyProjection(s, burn, s.generatedAt, s.generatedAt + 86400)).toEqual([]);
   });
   test('past reset stops; unknown and rolling never invent a full reset', () => {
-    const s = seriesFixture();
+    const s = quotaAccountSeriesFixture();
     const burn = historyBurn(s, 3, s.generatedAt);
     for (const semantics of ['unknown', 'rolling', 'fixed_full'] as const) {
       s.metadata.resetSemantics = semantics;

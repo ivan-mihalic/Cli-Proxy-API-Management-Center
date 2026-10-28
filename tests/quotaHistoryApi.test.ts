@@ -8,7 +8,7 @@ import {
 } from '../src/services/api/quotaHistory';
 import { historyRequestCurrent } from '../src/features/quota/hooks/useQuotaHistory';
 import { useAuthStore, useQuotaStore } from '../src/stores';
-import { seriesFixture } from './quotaHistoryModel.test';
+import { quotaAccountSeriesFixture } from './quotaHistoryModel.test';
 
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
 const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -54,11 +54,11 @@ afterAll(() => {
 const connect = (base = 'https://proxycli.internal', key = 'canary-only') =>
   apiClient.setConfig({ apiBase: base, managementKey: key });
 
-function catalogFixture() {
-  const s = seriesFixture();
+function quotaAccountCatalogFixture() {
+  const s = quotaAccountSeriesFixture();
   return {
     schemaVersion: 1,
-    contractVersion: '1.0.0',
+    contractVersion: '1.0.1',
     generatedAt: s.generatedAt,
     pollIntervalSeconds: 300,
     staleAfterSeconds: 900,
@@ -87,26 +87,52 @@ function catalogFixture() {
 }
 
 describe('frozen quota history wire and isolation guards', () => {
+  test('accepts only frozen 1.0.1 and rejects 1.0.0 without compatibility fallback', () => {
+    expect(
+      parseHistorySeries({ ...quotaAccountSeriesFixture(), contractVersion: '1.0.1' })
+        .contractVersion
+    ).toBe('1.0.1');
+    expect(
+      parseHistoryCatalog({ ...quotaAccountCatalogFixture(), contractVersion: '1.0.1' })
+        .contractVersion
+    ).toBe('1.0.1');
+    expect(() =>
+      parseHistorySeries({ ...quotaAccountSeriesFixture(), contractVersion: '1.0.0' })
+    ).toThrow('Invalid history schema');
+    expect(() =>
+      parseHistoryCatalog({ ...quotaAccountCatalogFixture(), contractVersion: '1.0.0' })
+    ).toThrow('Invalid history schema');
+  });
+
   test('valid whitelist data; metadata transitions stay distinct window IDs', () => {
-    expect(parseHistorySeries(seriesFixture()).samples).toHaveLength(73);
-    const c = catalogFixture();
+    expect(parseHistorySeries(quotaAccountSeriesFixture()).samples).toHaveLength(73);
+    const c = quotaAccountCatalogFixture();
     const old = c.credentials[0].windows[0];
     c.credentials[0].windows.push({ ...old, windowId: 'w_new_plan', plan: 'max', scope: 'opus' });
     expect(parseHistoryCatalog(c).credentials[0].windows).toHaveLength(2);
   });
   test('unknown fields, invalid enums, personal aliases, malformed samples and false coverage reject', () => {
     const bad = [
-      { ...seriesFixture(), secret: 'canary-unknown-field' },
-      { ...seriesFixture(), contractVersion: '2.0.0' },
-      { ...seriesFixture(), metadata: { ...seriesFixture().metadata, plan: 'unrecognized' } },
-      { ...seriesFixture(), quality: { ...seriesFixture().quality, coverage: 1 } },
-      { ...seriesFixture(), samples: [{ ...seriesFixture().samples[0], usedPercent: 101 }] },
-      { ...seriesFixture(), samples: seriesFixture().samples.reverse() },
+      { ...quotaAccountSeriesFixture(), secret: 'canary-unknown-field' },
+      { ...quotaAccountSeriesFixture(), contractVersion: '2.0.0' },
+      {
+        ...quotaAccountSeriesFixture(),
+        metadata: { ...quotaAccountSeriesFixture().metadata, plan: 'unrecognized' },
+      },
+      {
+        ...quotaAccountSeriesFixture(),
+        quality: { ...quotaAccountSeriesFixture().quality, coverage: 1 },
+      },
+      {
+        ...quotaAccountSeriesFixture(),
+        samples: [{ ...quotaAccountSeriesFixture().samples[0], usedPercent: 101 }],
+      },
+      { ...quotaAccountSeriesFixture(), samples: quotaAccountSeriesFixture().samples.reverse() },
     ];
     bad.forEach((value) =>
       expect(() => parseHistorySeries(value)).toThrow('Invalid history schema')
     );
-    const c = catalogFixture();
+    const c = quotaAccountCatalogFixture();
     c.credentials[0].alias = 'canary@example.invalid';
     expect(() => parseHistoryCatalog(c)).toThrow();
   });
@@ -114,7 +140,13 @@ describe('frozen quota history wire and isolation guards', () => {
     const calls: InternalAxiosRequestConfig[] = [];
     axios.defaults.adapter = async (config) => {
       calls.push(config);
-      return { data: catalogFixture(), status: 200, statusText: 'OK', headers: {}, config };
+      return {
+        data: quotaAccountCatalogFixture(),
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
     };
     connect();
     await captureQuotaHistory(() => true, new AbortController().signal).catalog();
@@ -231,13 +263,13 @@ describe('frozen quota history wire and isolation guards', () => {
       ).rejects.toMatchObject({ status });
     }
     axios.defaults.adapter = async (config) => ({
-      data: seriesFixture(),
+      data: quotaAccountSeriesFixture(),
       status: 200,
       statusText: 'OK',
       headers: {},
       config,
     });
-    const s = seriesFixture();
+    const s = quotaAccountSeriesFixture();
     await expect(
       captureQuotaHistory(() => true, new AbortController().signal).series(
         'c_other',

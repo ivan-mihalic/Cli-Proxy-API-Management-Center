@@ -30,7 +30,8 @@ export interface HistoryWindow extends HistoryMetadata {
   lastAttemptAt: number | null;
   lastErrorCode: HistoryError | null;
 }
-export interface HistoryCredential {
+/** Neprůhledný quota account+organization+personal-scope subject; nejde o OAuth login. */
+export interface HistoryAccount {
   credentialId: string;
   alias: string;
   provider: HistoryProvider;
@@ -39,12 +40,12 @@ export interface HistoryCredential {
 }
 export interface HistoryCatalog {
   schemaVersion: 1;
-  contractVersion: '1.0.0';
+  contractVersion: '1.0.1';
   generatedAt: number;
   pollIntervalSeconds: 300;
   staleAfterSeconds: 900;
   retentionSeconds: 2592000;
-  credentials: HistoryCredential[];
+  credentials: HistoryAccount[];
 }
 export interface HistorySample {
   measuredAt: number;
@@ -60,7 +61,7 @@ export interface HistoryAttempt {
 }
 export interface HistorySeries {
   schemaVersion: 1;
-  contractVersion: '1.0.0';
+  contractVersion: '1.0.1';
   generatedAt: number;
   credentialId: string;
   provider: HistoryProvider;
