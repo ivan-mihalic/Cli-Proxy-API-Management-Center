@@ -1,0 +1,189 @@
+.history {
+  --history-accent: var(--quota-history-claude);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 20px;
+  min-width: 0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+.controls,
+.heading,
+.legend,
+.burns,
+.navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.heading {
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.controls {
+  margin-bottom: 12px;
+}
+.controls label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 0;
+}
+.controls select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+}
+.history button {
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.history button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.history button[aria-pressed='true'] {
+  border-color: var(--history-accent);
+  background: color-mix(in srgb, var(--history-accent) 12%, var(--bg-primary));
+}
+.history :focus-visible {
+  outline: 2px solid var(--history-accent);
+  outline-offset: 3px;
+}
+.navigation {
+  margin-left: auto;
+}
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  margin: 18px 0 10px;
+}
+.remaining {
+  font-size: 36px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.muted,
+.legend,
+.detail {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.burns {
+  margin-bottom: 12px;
+}
+.burns button {
+  display: grid;
+  text-align: left;
+  gap: 3px;
+}
+.burns small {
+  color: var(--text-secondary);
+}
+.viewport {
+  overflow-x: auto;
+}
+.svg {
+  display: block;
+  width: 100%;
+  min-width: 600px;
+  height: auto;
+}
+.svg text {
+  fill: var(--text-secondary);
+  font-size: 12px;
+}
+.grid {
+  stroke: var(--border-color);
+  stroke-width: 1;
+}
+.line {
+  fill: none;
+  stroke: var(--history-accent);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+.area {
+  fill: color-mix(in srgb, var(--history-accent) 8%, transparent);
+}
+.estimate {
+  stroke-dasharray: 7 5;
+}
+.point {
+  fill: var(--history-accent);
+}
+.marker {
+  stroke: var(--text-quaternary);
+  stroke-dasharray: 3 5;
+}
+.uncertain {
+  fill: color-mix(in srgb, var(--amber-color) 12%, transparent);
+}
+.failure {
+  stroke: var(--warning-color);
+  stroke-width: 2;
+}
+.cursor {
+  stroke: var(--history-accent);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+.legend {
+  margin-top: 8px;
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend i {
+  display: inline-block;
+  width: 22px;
+  border-top: 2px solid var(--history-accent);
+}
+.legend .dashed {
+  border-top-style: dashed;
+}
+.detail {
+  min-height: 38px;
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+.empty {
+  padding: 30px 4px;
+  color: var(--text-secondary);
+}
+@media (max-width: 600px) {
+  .history {
+    padding: 12px;
+  }
+  .controls label {
+    flex: 1 1 130px;
+  }
+  .navigation {
+    margin-left: 0;
+    width: 100%;
+  }
+}
