@@ -3,6 +3,7 @@ import {
   historyBurn,
   historyProjection,
   historyRange,
+  historyServerNow,
   historySegments,
 } from '../src/features/quota/quotaHistoryModel';
 import type { HistorySeries } from '../src/types/quotaHistory';
@@ -119,6 +120,21 @@ describe('quota history measurement invariants', () => {
     s.generatedAt -= 1;
     expect(historyProjection(s, burn, s.generatedAt, s.generatedAt + 86400)).toEqual([]);
   });
+  test('server time blocks projection across a reset despite browser clock lag', () => {
+    const s = quotaAccountSeriesFixture();
+    s.samples = s.samples.slice(0, -1);
+    s.quality.lastMeasuredAt = s.samples.at(-1)!.measuredAt;
+    s.samples.forEach((p) => (p.resetAt = s.generatedAt - 100));
+    expect(
+      historyProjection(
+        s,
+        historyBurn(s, 3, s.generatedAt),
+        s.generatedAt - 200,
+        s.generatedAt + 3600
+      )
+    ).toEqual([]);
+  });
+
   test('past reset stops; unknown and rolling never invent a full reset', () => {
     const s = quotaAccountSeriesFixture();
     const burn = historyBurn(s, 3, s.generatedAt);
@@ -137,4 +153,23 @@ describe('quota history measurement invariants', () => {
     expect(range.to - range.from).toBe(2592000);
     expect(historyRange(end, 86400, -1).to).toBe(end - 86400);
   });
+});
+
+test('server clock and query snapshot ignore both directions of browser clock skew', () => {
+  const server = 1793196000;
+  const snapshot = historyRange(server + 1, 86400);
+  const previous = historyRange(server + 1, 86400, -1);
+  for (const browserSkew of [-7200000, 7200000]) {
+    const original = Date.now;
+    Date.now = () => server * 1000 + browserSkew;
+    try {
+      expect(historyServerNow(server, 1000, 61000)).toBe(server + 60);
+      expect(historyRange(server + 1, 86400)).toEqual(snapshot);
+      expect(historyRange(server + 1, 86400, -1)).toEqual(previous);
+      expect(snapshot.to).toBeLessThanOrEqual(server + 60);
+    } finally {
+      Date.now = original;
+    }
+  }
+  expect(historyServerNow(server, 1000, 0)).toBe(server);
 });

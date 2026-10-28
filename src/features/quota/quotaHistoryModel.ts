@@ -105,6 +105,7 @@ export function historyProjection(
   now: number,
   viewEnd: number
 ): HistoryProjectionPoint[] {
+  now = Math.max(now, series.generatedAt);
   const latest = series.samples[series.samples.length - 1];
   const measuredAt = series.quality.lastMeasuredAt;
   if (
@@ -136,4 +137,9 @@ export function historyProjection(
 export function historyRange(end: number, seconds: number, offset = 0) {
   const to = Math.max(1, Math.floor(end) + Math.min(0, offset) * seconds);
   return { from: Math.max(0, to - seconds), to };
+}
+
+// Čas serveru + monotónně uplynulá doba; změna hodin OS nemění dotazy ani odhad.
+export function historyServerNow(generatedAt: number, receivedAt: number, monotonicNow: number) {
+  return generatedAt + Math.max(0, Math.floor((monotonicNow - receivedAt) / 1000));
 }

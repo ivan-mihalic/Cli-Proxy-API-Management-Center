@@ -1,6 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNow } from '@/hooks/useNow';
 import type { HistoryProvider, HistorySeries } from '@/types/quotaHistory';
 import { useQuotaHistory } from '../hooks/useQuotaHistory';
 import {
@@ -8,7 +7,6 @@ import {
   HISTORY_RANGES,
   historyBurn,
   historyProjection,
-  historyRange,
   historySegments,
 } from '../quotaHistoryModel';
 import styles from './QuotaHistoryChart.module.scss';
@@ -47,7 +45,7 @@ export function QuotaHistoryPlot({
   useEffect(() => {
     const viewport = viewportRef.current;
     if (viewport) viewport.scrollLeft = viewport.scrollWidth - viewport.clientWidth;
-  }, [series]);
+  }, []);
   const [selected, setSelected] = useState<number | null>(null);
   const segments = useMemo(() => historySegments(series), [series]);
   const end = Math.min(series.to - 1, series.generatedAt);
@@ -57,8 +55,9 @@ export function QuotaHistoryPlot({
     (burnHours === null ? burns.find((b) => b.perHour !== null) : undefined);
   const projection = selectedBurn ? historyProjection(series, selectedBurn, now, to) : [];
   const last = series.samples[series.samples.length - 1];
-  const sample =
-    selected === null ? last : series.samples[Math.min(selected, series.samples.length - 1)];
+  const selectedIndex =
+    selected === null ? -1 : series.samples.findIndex((p) => p.measuredAt === selected);
+  const sample = selectedIndex < 0 ? last : series.samples[selectedIndex];
   const stale =
     series.quality.stale ||
     series.quality.lastMeasuredAt === null ||
@@ -139,11 +138,11 @@ export function QuotaHistoryPlot({
                           0,
                           Math.min(
                             series.samples.length - 1,
-                            (selected ?? series.samples.length - 1) +
+                            (selectedIndex < 0 ? series.samples.length - 1 : selectedIndex) +
                               (event.key === 'ArrowLeft' ? -1 : 1)
                           )
                         );
-                setSelected(next);
+                setSelected(series.samples[next].measuredAt);
                 const viewport = viewportRef.current;
                 if (viewport) {
                   const position =
@@ -174,7 +173,7 @@ export function QuotaHistoryPlot({
                     Math.abs(series.samples[low].measuredAt - instant)
                 )
                   low--;
-                setSelected(low);
+                setSelected(series.samples[low].measuredAt);
               }}
             >
               <title>{t('quota_history.chart_label')}</title>
@@ -340,7 +339,6 @@ export function QuotaHistoryPlot({
 
 export function QuotaHistoryChart() {
   const { t } = useTranslation();
-  const now = Math.floor(useNow() / 1000);
   const [provider, setProvider] = useState<HistoryProvider>('claude');
   const [credentialId, setCredentialId] = useState('');
   const [windowId, setWindowId] = useState('');
@@ -348,15 +346,10 @@ export function QuotaHistoryChart() {
   const [offset, setOffset] = useState(0);
   const [burnHours, setBurnHours] = useState<number | null>(null);
   const [refresh, setRefresh] = useState(0);
-  const periodEnd = now + 1;
-  const { from, to } = historyRange(periodEnd, range, offset);
-  const history = useQuotaHistory(
-    credentialId,
-    windowId,
-    from,
-    to,
-    Math.floor(now / 300) + refresh
-  );
+  const history = useQuotaHistory(credentialId, windowId, range, offset, refresh);
+  const { now } = history;
+  const from = history.series?.from ?? history.from;
+  const to = history.series?.to ?? history.to;
   const accounts = history.catalog?.credentials.filter((a) => a.provider === provider) ?? [];
   const account = accounts.find((a) => a.credentialId === credentialId) ?? accounts[0];
   const window = account?.windows.find((w) => w.windowId === windowId) ?? account?.windows[0];
@@ -517,7 +510,7 @@ export function QuotaHistoryChart() {
         </div>
       ) : compatible ? (
         <QuotaHistoryPlot
-          key={`${currentKey}:${from}:${to}`}
+          key={`${currentKey}:${range}:${offset}`}
           series={series}
           from={from}
           to={offset === 0 ? to + range / 3 : to}
