@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import { apiClient } from '@/services/api/client';
 import { captureQuotaHistory } from '@/services/api/quotaHistory';
 import { useAuthStore, useQuotaStore } from '@/stores';
-import { createSharedClock } from '@/utils/time/sharedClock';
+import { createQuotaHistoryClock } from '../quotaHistoryClock';
 import { historyRange, historyServerNow } from '../quotaHistoryModel';
 import type { HistoryCatalog, HistorySeries } from '@/types/quotaHistory';
 
-const historyClock = createSharedClock({ now: () => performance.now() });
-const serverClockSnapshot = () => 0;
+const historyClock = createQuotaHistoryClock();
+const serverSnapshot = { elapsed: 0, epoch: 0 };
+const serverClockSnapshot = () => serverSnapshot;
 
 interface Resource<T> {
   key: string;
@@ -15,6 +16,7 @@ interface Resource<T> {
   status: 'loading' | 'ready' | 'unavailable';
   receivedAt?: number;
   anchor?: number;
+  clockEpoch?: number;
 }
 
 // Revize klienta chrání i ABA; generace quota cache zachytí logout a nový login.
@@ -40,12 +42,13 @@ export function useQuotaHistory(
   offset: number,
   refresh: number
 ) {
-  const monotonicTime = useSyncExternalStore(
+  const clock = useSyncExternalStore(
     historyClock.subscribe,
     historyClock.getSnapshot,
     serverClockSnapshot
   );
-  const refreshCycle = Math.floor(monotonicTime / 300000) + refresh;
+  const monotonicTime = clock.elapsed;
+  const refreshCycle = `${Math.floor(monotonicTime / 300000)}:${clock.epoch}:${refresh}`;
   const generation = useQuotaStore((s) => s.cacheGeneration);
   const connected = useAuthStore((s) => s.isAuthenticated && s.connectionStatus === 'connected');
   const [catalog, setCatalog] = useState<Resource<HistoryCatalog>>({ key: '', status: 'loading' });
@@ -84,20 +87,28 @@ export function useQuotaHistory(
     void captureQuotaHistory(current, abort.signal)
       .catalog()
       .then((data) => {
-        if (current())
+        if (current()) {
+          const received = historyClock.checkpoint();
           setCatalog((previous) => ({
             key: catalogKey,
             data,
             status: 'ready',
-            receivedAt: performance.now(),
+            receivedAt: received.elapsed,
+            clockEpoch: received.epoch,
             anchor:
               previous.key === catalogKey && previous.anchor !== undefined
                 ? previous.anchor
                 : data.generatedAt + 1,
           }));
+        }
       })
       .catch(() => {
-        if (current()) setCatalog({ key: catalogKey, status: 'unavailable' });
+        if (current())
+          setCatalog((previous) => ({
+            key: catalogKey,
+            status: 'unavailable',
+            anchor: previous.key === catalogKey ? previous.anchor : undefined,
+          }));
       });
     return () => abort.abort();
   }, [catalogKey, connected, generation, revision, refreshCycle]);
@@ -138,6 +149,7 @@ export function useQuotaHistory(
   return {
     from,
     to,
+    clockTrusted: currentCatalog?.clockEpoch === clock.epoch,
     now: currentCatalog?.data
       ? historyServerNow(
           currentCatalog.data.generatedAt,

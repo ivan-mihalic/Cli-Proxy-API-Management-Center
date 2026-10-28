@@ -29,6 +29,7 @@ export interface QuotaHistoryPlotProps {
   now: number;
   burnHours: number | null;
   onBurnChange: (hours: number) => void;
+  clockTrusted?: boolean;
 }
 
 export function QuotaHistoryPlot({
@@ -38,6 +39,7 @@ export function QuotaHistoryPlot({
   now,
   burnHours,
   onBurnChange,
+  clockTrusted = true,
 }: QuotaHistoryPlotProps) {
   const { t } = useTranslation();
   const descriptionId = useId();
@@ -53,12 +55,14 @@ export function QuotaHistoryPlot({
   const selectedBurn =
     burns.find((b) => b.hours === (burnHours ?? 3) && b.perHour !== null) ??
     (burnHours === null ? burns.find((b) => b.perHour !== null) : undefined);
-  const projection = selectedBurn ? historyProjection(series, selectedBurn, now, to) : [];
+  const projection =
+    clockTrusted && selectedBurn ? historyProjection(series, selectedBurn, now, to) : [];
   const last = series.samples[series.samples.length - 1];
   const selectedIndex =
     selected === null ? -1 : series.samples.findIndex((p) => p.measuredAt === selected);
   const sample = selectedIndex < 0 ? last : series.samples[selectedIndex];
   const stale =
+    !clockTrusted ||
     series.quality.stale ||
     series.quality.lastMeasuredAt === null ||
     series.quality.lastMeasuredAt > series.generatedAt ||
@@ -482,7 +486,7 @@ export function QuotaHistoryChart() {
           >
             ‹
           </button>
-          <button type="button" onClick={() => change(() => setOffset(0))}>
+          <button type="button" disabled={offset === 0} onClick={() => change(() => setOffset(0))}>
             {t('quota_history.today')}
           </button>
           <button
@@ -515,6 +519,7 @@ export function QuotaHistoryChart() {
           from={from}
           to={offset === 0 ? to + range / 3 : to}
           now={now}
+          clockTrusted={history.clockTrusted}
           burnHours={burnHours}
           onBurnChange={setBurnHours}
         />
