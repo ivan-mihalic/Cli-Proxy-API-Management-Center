@@ -76,9 +76,11 @@ export function useQuotaHistory(
 
   useEffect(() => {
     const request = ++catalogRequest.current;
+    const requestEpoch = historyClock.getSnapshot().epoch;
     const abort = new AbortController();
     const current = () =>
       !abort.signal.aborted &&
+      requestEpoch === historyClock.getSnapshot().epoch &&
       historyRequestCurrent(revision, generation, request, catalogRequest.current);
     if (!connected) return () => abort.abort();
     setCatalog((previous) =>
@@ -89,6 +91,7 @@ export function useQuotaHistory(
       .then((data) => {
         if (current()) {
           const received = historyClock.checkpoint();
+          if (received.epoch !== requestEpoch) return;
           setCatalog((previous) => ({
             key: catalogKey,
             data,
