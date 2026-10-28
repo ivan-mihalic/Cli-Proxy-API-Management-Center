@@ -57,9 +57,11 @@ class ApiClient {
   }
 
   /** Pin credentials and suppress response side effects after the owning connection changes. */
-  captureConnection(): ApiClient {
+  captureConnection(isCurrent: () => boolean = () => true): ApiClient {
     const revision = this.connectionRevision;
-    const client = new ApiClient(() => this.connectionRevision === revision);
+    const client = new ApiClient(
+      () => this.emitEvents() && this.connectionRevision === revision && isCurrent()
+    );
     client.apiBase = this.apiBase;
     client.managementKey = this.managementKey;
     return client;
@@ -207,6 +209,30 @@ class ApiClient {
    */
   async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.instance.get<T>(url, config);
+    return response.data;
+  }
+
+  /** Jediná povolená root extension; bearer nesmí opustit schválený origin. */
+  async getQuotaHistory<T = unknown>(
+    resource: 'catalog' | 'series',
+    params: Record<string, string | number> = {},
+    signal?: AbortSignal
+  ): Promise<T> {
+    const origin = 'https://proxycli.internal';
+    if (
+      this.apiBase !== `${origin}/v8/management` ||
+      typeof window === 'undefined' ||
+      window.location.origin !== origin ||
+      !this.managementKey ||
+      !['catalog', 'series'].includes(resource)
+    )
+      throw new Error('Quota history unavailable');
+    const response = await this.instance.get<T>(`${origin}/quota-history/v1/${resource}`, {
+      params,
+      signal,
+      maxRedirects: 0,
+      headers: { 'Cache-Control': 'no-store' },
+    });
     return response.data;
   }
 

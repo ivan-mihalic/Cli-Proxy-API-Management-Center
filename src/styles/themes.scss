@@ -4,6 +4,8 @@
 
 // 浅色主题（默认）
 :root {
+  --quota-history-claude: #c05621;
+  --quota-history-codex: #1565c0;
   // 极简暖灰：浅色模式
   --bg-secondary: #faf9f5; // 页面背景（纸感）
   --bg-primary: #f0eee8; // 容器/卡片背景
@@ -164,6 +166,8 @@
 
 // 深色主题（#191919）
 [data-theme='dark'] {
+  --quota-history-claude: #e8a882;
+  --quota-history-codex: #64b5f6;
   // 极简暖灰：深色模式（提升对比度与层级）
   --bg-secondary: #151412; // 页面背景
   --bg-primary: #1d1b18; // 容器/卡片背景
